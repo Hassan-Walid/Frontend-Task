@@ -1,5 +1,6 @@
 // src/hooks/useLibraryData.js
 import { useEffect, useState, useMemo } from 'react';
+import { API_BASE_URL } from '../config/apiConfig';
 
 const useLibraryData = ({ storeId = null, searchTerm = '' } = {}) => {
   // State for data
@@ -10,25 +11,30 @@ const useLibraryData = ({ storeId = null, searchTerm = '' } = {}) => {
 
   // Fetch all data
   useEffect(() => {
-    fetch('/data/stores.json')
-      .then((response) => response.json())
-      .then((data) => setStores(Array.isArray(data) ? data : [data]))
-      .catch((error) => console.error('Error fetching stores:', error));
+    const fetchData = async () => {
+      try {
+        const [storesRes, booksRes, authorsRes, inventoryRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/stores`),
+          fetch(`${API_BASE_URL}/books`),
+          fetch(`${API_BASE_URL}/authors`),
+          fetch(`${API_BASE_URL}/inventory`)
+        ]);
 
-    fetch('/data/books.json')
-      .then((response) => response.json())
-      .then((data) => setBooks(Array.isArray(data) ? data : [data]))
-      .catch((error) => console.error('Error fetching books:', error));
+        const storesData = await storesRes.json();
+        const booksData = await booksRes.json();
+        const authorsData = await authorsRes.json();
+        const inventoryData = await inventoryRes.json();
 
-    fetch('/data/authors.json')
-      .then((response) => response.json())
-      .then((data) => setAuthors(Array.isArray(data) ? data : [data]))
-      .catch((error) => console.error('Error fetching authors:', error));
+        setStores(storesData);
+        setBooks(booksData);
+        setAuthors(authorsData);
+        setInventory(inventoryData);
+      } catch (error) {
+        console.error("Error loading data:", error);
+      }
+    };
 
-    fetch('/data/inventory.json')
-      .then((response) => response.json())
-      .then((data) => setInventory(Array.isArray(data) ? data : [data]))
-      .catch((error) => console.error('Error fetching inventory:', error));
+    fetchData();
   }, []);
 
   // Create lookup maps
@@ -50,15 +56,14 @@ const useLibraryData = ({ storeId = null, searchTerm = '' } = {}) => {
   const storeBooks = useMemo(() => {
     if (!storeId) return books;
 
-    const storeInventory = inventory.filter((item) => item.store_id === parseInt(storeId, 10));
+    const storeInventory = inventory.filter((item) => item.store_id.toString() === storeId.toString());
 
     let filteredBooks = books
-      .filter((book) => storeInventory.some((item) => item.book_id === book.id))
+      .filter((book) => storeInventory.some((item) => item.book_id.toString() === book.id.toString()))
       .map((book) => {
-        const inventoryItem = storeInventory.find((item) => item.book_id === book.id);
-        return { ...book, price: inventoryItem ? inventoryItem.price : null };
+        const inventoryItem = storeInventory.find((item) => item.book_id.toString() === book.id.toString());
+        return { ...book, price: inventoryItem ? inventoryItem.price : null, invId: inventoryItem ? inventoryItem.id : null };
       });
-
     if (searchTerm.trim()) {
       const lowerSearch = searchTerm.toLowerCase();
       filteredBooks = filteredBooks.filter((book) =>
@@ -66,6 +71,7 @@ const useLibraryData = ({ storeId = null, searchTerm = '' } = {}) => {
           .some((value) => String(value).toLowerCase().includes(lowerSearch))
       );
     }
+    console.log("filteredBooks", filteredBooks);
 
     return filteredBooks;
   }, [storeId, books, inventory, searchTerm, authorMap]);
@@ -102,7 +108,7 @@ const useLibraryData = ({ storeId = null, searchTerm = '' } = {}) => {
     storeBooks,
     booksWithStores,
     isLoading,
-    currentStore: stores.find((store) => store.id === parseInt(storeId, 10)),
+    currentStore: stores.find((store) => store.id === storeId),
   };
 };
 
