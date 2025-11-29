@@ -1,84 +1,245 @@
-// src/pages/Inventory.jsx
-import { useEffect, useState } from 'react';
-import Modal from '../components/Modal';
+// src/pages/InventoryPage.jsx
+import React, { useState, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
+import Table from '../components/Table/Table';
+import Modal from '../components/Modal';
+import TableActions from '../components/ActionButton/TableActions';
+import useLibraryData from '../hooks/useLibraryData';
+import { API_BASE_URL } from '../config/apiConfig';
+import { v4 as uuid } from 'uuid';
+import { useAuth } from '../context/AuthContext';
 
 const Inventory = () => {
-  // State for UI
-  const [activeTab, setActiveTab] = useState('books');
+  const { storeId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth(); // get logged-in user
+
+  // --- State ---
+  const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [newBookId, setNewBookId] = useState('');
+  const [newPrice, setNewPrice] = useState('');
+  const [editingPrices, setEditingPrices] = useState({});
 
-  // Set active tab based on view query param
-  const view = 'books';
-  useEffect(() => {
-    if (view === 'authors' || view === 'books') {
-      setActiveTab(view);
+  // --- Library Data ---
+  const { storeBooks, books, inventory, setInventory, authorMap, currentStore, isLoading } =
+    useLibraryData({ storeId, searchTerm });
+
+  // --- Require Auth helper ---
+  const requireAuth = () => {
+    if (!user) {
+      navigate('/login');
+      return false;
     }
-  }, [view]);
-
-  // Modal controls
-  const openModal = () => setShowModal(true);
-  const closeModal = () => {
-    setShowModal(false);
+    return true;
   };
 
-  return (
-    <div className="py-6">
-      <div className="flex mb-4 w-full justify-center items-center">
-        <button
-          onClick={() => setActiveTab('books')}
-          className={`px-4 border-b-2 py-2 ${activeTab === 'books' ? 'border-b-main' : 'border-b-transparent'}`}
-        >
-          Books
-        </button>
-        <button
-          onClick={() => setActiveTab('authors')}
-          className={`px-4 border-b-2 py-2 ${activeTab === 'authors' ? 'border-b-main' : 'border-b-transparent'}`}
-        >
-          Authors
-        </button>
-      </div>
+  // --- CRUD Handlers ---
+  const handleDelete = (invId) => {
+    if (!requireAuth()) return;
 
-      <Header addNew={openModal} title={`Store Inventory`} buttonTitle="Add to inventory" />
+    if (!window.confirm('Are you sure you want to delete this book?')) return;
 
-      {activeTab === 'books' ? (
-          <p className="text-gray-600">No books found in this store.</p>
-      ) : (
-          <p className="text-gray-600">No authors with books in this store.</p>
-      )}
+    const updatedInventory = inventory.filter((item) => item.invId !== invId);
+    setInventory(updatedInventory);
 
-      <Modal
-        title="Add/Edit Book in Store"
-        save={closeModal}
-        cancel={closeModal}
-        show={showModal}
-        setShow={setShowModal}
-      >
-        <div className="flex flex-col gap-4 w-full">
-          <div>
-            <label htmlFor="book_select" className="block text-gray-700 font-medium mb-1">
-              Select Book
-            </label>
-            <select
-              id="book_select"
-              className="border border-gray-300 rounded p-2 w-full"
-            >
-            </select>
-          </div>
+    fetch(`${API_BASE_URL}/inventory/${invId}`, { method: 'DELETE' });
+  };
 
-          <div>
-            <label htmlFor="price" className="block text-gray-700 font-medium mb-1">
-              Price
-            </label>
+  const handleEdit = (invId, currentPrice) => {
+    if (!requireAuth()) return;
+
+    setEditingPrices((prev) => ({ ...prev, [invId]: currentPrice }));
+  };
+
+  const handleSaveEdit = (invId) => {
+    if (!requireAuth()) return;
+
+    const newPrice = parseFloat(editingPrices[invId]);
+
+    setInventory((prev) =>
+      prev.map((item) => (item.invId === invId ? { ...item, price: newPrice } : item))
+    );
+
+    fetch(`${API_BASE_URL}/inventory/${invId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ price: newPrice }),
+    });
+
+    setEditingPrices((prev) => {
+      const copy = { ...prev };
+      delete copy[invId];
+      return copy;
+    });
+  };
+
+  const handleCancelEdit = (invId) => {
+    setEditingPrices((prev) => {
+      const copy = { ...prev };
+      delete copy[invId];
+      return copy;
+    });
+  };
+
+  const handleAddBook = () => {
+    if (!requireAuth()) return;
+
+    if (!newBookId || !newPrice) return alert('Select a book and enter price');
+
+    const newInventoryItem = {
+      invId: uuid(),
+      store_id: storeId,
+      book_id: newBookId,
+      price: parseFloat(newPrice),
+    };
+
+    fetch(`${API_BASE_URL}/inventory`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newInventoryItem),
+    });
+
+    setInventory([...inventory, newInventoryItem]);
+    setShowModal(false);
+    setNewBookId('');
+    setNewPrice('');
+  };
+
+  // --- Columns ---
+  const columns = useMemo(
+    () => [
+      { header: 'Id', accessorKey: 'invId' },
+      { header: 'Book Id', accessorKey: 'id' },
+      { header: 'Name', accessorKey: 'name' },
+      { header: 'Pages', accessorKey: 'page_count' },
+      {
+        header: 'Author',
+        accessorKey: 'author_id',
+        cell: ({ row }) => authorMap[row.original.author_id]?.name || 'Unknown',
+      },
+      {
+        header: 'Price',
+        accessorKey: 'price',
+        cell: ({ row }) => {
+          const rowId = row.original.invId;
+          const isEditing = editingPrices[rowId] !== undefined;
+
+          return isEditing ? (
             <input
-              id="price"
-              type="text"
-              className="border border-gray-300 rounded p-2 w-full"
-              placeholder="Enter Price (e.g., 29.99)"
+              type="number"
+              value={editingPrices[rowId]}
+              onChange={(e) =>
+                setEditingPrices((prev) => ({ ...prev, [rowId]: e.target.value }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveEdit(rowId);
+                if (e.key === 'Escape') handleCancelEdit(rowId);
+              }}
+              className="border p-1 w-24"
+              autoFocus
             />
+          ) : (
+            <span
+              className="cursor-pointer"
+              onClick={() =>
+                requireAuth() &&
+                setEditingPrices((prev) => ({ ...prev, [rowId]: row.original.price }))
+              }
+            >
+              {row.original.price}
+            </span>
+          );
+        },
+      },
+      {
+        header: 'Actions',
+        id: 'actions',
+        cell: ({ row }) => (
+          <TableActions
+            row={row}
+            onEdit={() => handleEdit(row.original.invId, row.original.price)}
+            onDelete={() => handleDelete(row.original.invId)}
+          />
+        ),
+      },
+    ],
+    [editingPrices, authorMap, inventory, user]
+  );
+
+  // --- JSX ---
+  return (
+    <div className="py-6 px-4">
+      {isLoading ? (
+        <div>Loading...</div>
+      ) : !currentStore ? (
+        <div>Store not found</div>
+      ) : (
+        <>
+          <div className='flex justify-between items-center'>
+            <div className='flex items-center gap-2 '>
+              <h1 className='text-lg '>{currentStore.name} Inventory</h1>
+              <input
+                type="text"
+                placeholder="Search books..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border p-2 mb-4 w-full rounded"
+              />
+            </div>
+            <button className='bg-main text-white rounded px-4 py-2'
+              onClick={() => {
+                requireAuth() && setShowModal(true)
+              }}
+            >Add to Inventory</button>
           </div>
-        </div>
-      </Modal>
+
+
+
+          {storeBooks.length === 0 ? (
+            <p className="text-gray-600 mt-4">No books found in this store.</p>
+          ) : (
+            <Table data={storeBooks} columns={columns} />
+          )}
+
+          <Modal
+            title="Add Book to Store"
+            save={handleAddBook}
+            cancel={() => setShowModal(false)}
+            show={showModal}
+            setShow={setShowModal}
+          >
+            <div className="flex flex-col gap-4 w-full">
+              <div>
+                <label className="block text-gray-700 font-medium mb-1">Select Book</label>
+                <select
+                  value={newBookId}
+                  onChange={(e) => setNewBookId(e.target.value)}
+                  className="border p-2 w-full rounded"
+                >
+                  <option value="">-- Select Book --</option>
+                  {books.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-gray-700 font-medium mb-1">Price</label>
+                <input
+                  type="number"
+                  value={newPrice}
+                  onChange={(e) => setNewPrice(e.target.value)}
+                  placeholder="Enter Price"
+                  className="border p-2 w-full rounded"
+                />
+              </div>
+            </div>
+          </Modal>
+        </>
+      )}
     </div>
   );
 };
