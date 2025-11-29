@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import Modal from '../components/Modal';
 import TableActions from '../components/ActionButton/TableActions';
+import { API_BASE_URL } from "../config/apiConfig";
 
 const Authors = () => {
   const [authors, setAuthors] = useState([]);
@@ -24,7 +25,7 @@ const Authors = () => {
 
   // Fetch JSON data
   useEffect(() => {
-    fetch('/data/authors.json')
+    fetch(`${API_BASE_URL}/authors`)
       .then((response) => response.json())
       .then((data) => {
         console.log('Fetched authors:', data);
