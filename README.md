@@ -1,66 +1,49 @@
-# OVARC TASK
+# Bookstore Admin Dashboard
+## Overview
 
-## Tech Stack
-- **Vite**: Fast build tool and dev server.
-- **React Router**: Dynamic routing with code splitting.
-- **Tailwind CSS**: Utility-first CSS framework.
-
-
-## Setup
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-2. **Start the development server**:
-   ```bash
-   npm run dev
-   ```
-
-3. **Build for production**:
-   ```bash
-   npm run build
-   ```  
+- This project is a frontend bookstore admin interface that allows managing stores, books, and authors.
+- It provides functionalities for viewing store inventories, editing book prices, adding new books, and handling user authentication.
 
 ## Features
-1. **Shop Page**: 
-   
-   It has a list of cards containing the book cover page, title & author, and which stores this book is available in. The sell button should mark this as sold but keep the card on the page.
 
-2. **Authors Page** 
+### Inventory Management
 
-   It has a simple list of authors and two CTAs to edit the name (in-line edit) or delete the author entirely. There is a CTA & a modal too for adding a new author.
+- View books in a store with details: Book Id, Name, Pages, Author, Price.
 
-3. **Books Page** 
+- Inline edit book prices.
 
-   It has a list of books, the number of pages, and who the author is. The edit CTA is an in-line edit for the book title.
+- Delete books from the store.
 
-4. **Stores Page** 
+- Add new books to store inventory.
 
-   Same as the above two. The entire row is a CTA for the next page.
+- Search books within a store.
 
-5. **Store Inventory Page**
+### Authentication
 
-   This is where the admin adds more books to the store’s
-inventory. The books should be viewable either in a list view or grouped by the author via the tab selection. The add to inventory CTA pops up a modal to select the new book and set its price.
+- Sign In / Sign Out functionality.
 
-## Project Structure
-- src/pages/: Contains page components like Home, BrowseStores, Browse, BrowseAuthors, and Inventory.
+- Only signed-in users can add, edit, or delete inventory.
 
-- src/components/: Includes reusable UI components such as StoreCard, BookCard, AuthorCard, BooksTable, Modal, and Header.
+- User authentication is validated against mock user data.
 
-- src/hooks/: Custom hooks like useLibraryData for data fetching and state management.
+- User session persists on refresh using localStorage.
 
-- src/assets/: Stores static assets like author images (a1.png, a2.png).
+- Allowed Users:
+ - email: admin@test.com
+ - password: 123456
 
-- data/: JSON files (stores.json, books.json, authors.json, inventory.json) for mock data.
+### Mock Server
 
-Routes
-- /: Home page with sections for Stores, Books, and Authors.
+- The app can run with either the mock server or the real backend.
 
-- /browse-stores: Browse all stores with their book counts and average prices.
+- Switch between servers using an environment variable: `VITE_USE_MOCK=true`
 
-- /browse: Browse all books with their authors and store availability.
+## Installation
 
-- /browse-authors: Browse all authors with their published book counts.
+- Clone the repository: `git clone https://github.com/Hassan-Walid/Frontend-Task`
 
+- Install dependencies: `npm install`
 
+- Run the app: `npm run dev`
+
+- Mock server (if using): `npm run mock`
